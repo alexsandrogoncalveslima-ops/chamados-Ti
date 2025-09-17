@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Chamados de TI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 sm:p-8 flex items-center justify-center">
+
+<div class="w-full max-w-4xl bg-white p-6 rounded-2xl shadow-xl space-y-8">
+    <header class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Sistema de Chamados de TI</h1>
+        <p id="user-info" class="text-sm text-gray-500 mt-2"></p>
+    </header>
+
+    <!-- Dashboard -->
+    <div class="bg-purple-50 p-6 rounded-xl border border-purple-200">
+        <h2 class="text-2xl font-semibold text-purple-800 mb-4">Dashboard</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 text-center">
+                <p class="text-xs font-semibold text-gray-500">Total de Chamados</p>
+                <p id="total-tickets" class="text-2xl font-bold text-gray-800 mt-1">0</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 text-center">
+                <p class="text-xs font-semibold text-gray-500">Chamados Abertos</p>
+                <p id="open-tickets" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+            </div>
+            <div class="bg-white rounded-lg p-4 shadow-sm border border-gray-200 text-center">
+                <p class="text-xs font-semibold text-gray-500">Chamados Resolvidos</p>
+                <p id="resolved-tickets" class="text-2xl font-bold text-green-600 mt-1">0</p>
+            </div>
+        </div>
+        <div class="relative h-64">
+            <canvas id="ticket-chart"></canvas>
+        </div>
+    </div>
+
+    <!-- Formulário de Criação de Chamados -->
+    <div class="bg-blue-50 p-6 rounded-xl border border-blue-200">
+        <h2 class="text-2xl font-semibold text-blue-800 mb-4">Abrir Novo Chamado</h2>
+        <form id="ticket-form" class="space-y-4">
+            <div>
+                <label for="title" class="block text-sm font-medium text-blue-700">Título do Chamado</label>
+                <input type="text" id="title" name="title" required
+                       class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition duration-150 ease-in-out p-2.5">
+            </div>
+            <div>
+                <label for="description" class="block text-sm font-medium text-blue-700">Descrição</label>
+                <textarea id="description" name="description" rows="3" required
+                          class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition duration-150 ease-in-out p-2.5"></textarea>
+            </div>
+            <button type="submit"
+                    class="w-full py-2 px-4 border border-transparent rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out font-semibold">
+                Abrir Chamado
+            </button>
+        </form>
+    </div>
+
+    <!-- Lista de Chamados -->
+    <div>
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Chamados Abertos</h2>
+        <div id="tickets-list" class="space-y-4">
+            <!-- Os chamados serão renderizados aqui pelo JavaScript -->
+        </div>
+        <div id="loading" class="text-center text-gray-500 mt-8 hidden">
+            <svg class="animate-spin h-8 w-8 text-gray-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <p class="mt-2">Carregando chamados...</p>
+        </div>
+        <div id="no-tickets" class="text-center text-gray-500 mt-8 hidden">
+            <p>Nenhum chamado aberto ainda. Crie o primeiro!</p>
+        </div>
+    </div>
+
+    <!-- Modal de Edição -->
+    <div id="edit-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-xl font-semibold mb-4">Editar Chamado</h3>
+            <form id="edit-form" class="space-y-4">
+                <div>
+                    <label for="edit-title" class="block text-sm font-medium text-gray-700">Título</label>
+                    <input type="text" id="edit-title" name="edit-title" required
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2.5">
+                </div>
+                <div>
+                    <label for="edit-description" class="block text-sm font-medium text-gray-700">Descrição</label>
+                    <textarea id="edit-description" name="edit-description" rows="3" required
+                              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2.5"></textarea>
+                </div>
+                <div>
+                    <label for="edit-status" class="block text-sm font-medium text-gray-700">Status</label>
+                    <select id="edit-status" name="edit-status"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2.5">
+                        <option value="Aberto">Aberto</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Resolvido">Resolvido</option>
+                        <option value="Fechado">Fechado</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-2 mt-4">
+                    <button type="button" id="close-modal" class="py-2 px-4 rounded-md text-gray-700 border border-gray-300 hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" class="py-2 px-4 rounded-md text-white bg-blue-600 hover:bg-blue-700">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="delete-confirm-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white text-center">
+            <h3 class="text-xl font-semibold text-gray-800 mb-4">Confirmar Exclusão</h3>
+            <p class="text-gray-600 mb-4">Tem certeza de que deseja excluir este chamado?</p>
+            <div class="flex justify-center space-x-4">
+                <button id="delete-confirm-yes" class="py-2 px-6 rounded-md text-white bg-red-600 hover:bg-red-700">Sim</button>
+                <button id="delete-confirm-no" class="py-2 px-6 rounded-md text-gray-700 border border-gray-300 hover:bg-gray-50">Não</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, orderBy, query, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    setLogLevel('Debug');
+
+    // Variáveis globais fornecidas pelo ambiente
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+    let app, auth, db, userId;
+
+    let ticketsRef;
+    let editTicketId = null;
+    let chartInstance = null;
+
+    const ticketForm = document.getElementById('ticket-form');
+    const ticketsList = document.getElementById('tickets-list');
+    const loadingEl = document.getElementById('loading');
+    const noTicketsEl = document.getElementById('no-tickets');
+    const userInfoEl = document.getElementById('user-info');
+    const editModal = document.getElementById('edit-modal');
+    const closeBtn = document.getElementById('close-modal');
+    const editForm = document.getElementById('edit-form');
+    const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+    const deleteConfirmYesBtn = document.getElementById('delete-confirm-yes');
+    const deleteConfirmNoBtn = document.getElementById('delete-confirm-no');
+    
+    // Mostra o modal de edição
+    function showEditModal(ticketData) {
+        document.getElementById('edit-title').value = ticketData.title;
+        document.getElementById('edit-description').value = ticketData.description;
+        document.getElementById('edit-status').value = ticketData.status;
+        editTicketId = ticketData.id;
+        editModal.classList.remove('hidden');
+    }
+
+    // Esconde o modal de edição
+    function hideEditModal() {
+        editModal.classList.add('hidden');
+        editTicketId = null;
+    }
+
+    // Mostra o modal de confirmação de exclusão
+    function showDeleteModal() {
+        deleteConfirmModal.classList.remove('hidden');
+    }
+    
+    // Esconde o modal de confirmação de exclusão
+    function hideDeleteModal() {
+        deleteConfirmModal.classList.add('hidden');
+    }
+
+    // Converte a data do Firestore para um formato legível
+    function formatDate(timestamp) {
+        if (!timestamp) return 'Sem data';
+        const date = timestamp.toDate();
+        const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+        return date.toLocaleDateString('pt-BR', options);
+    }
+
+    function renderTickets(tickets) {
+        ticketsList.innerHTML = '';
+        if (tickets.length === 0) {
+            noTicketsEl.classList.remove('hidden');
+        } else {
+            noTicketsEl.classList.add('hidden');
+            tickets.forEach(ticket => {
+                const isOwner = ticket.userId === userId;
+                const ticketCard = document.createElement('div');
+                ticketCard.className = `p-6 rounded-xl border-2 ${isOwner ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'}`;
+                ticketCard.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h3 class="text-xl font-semibold">${ticket.title}</h3>
+                            <p class="text-sm text-gray-500 mt-1">Status: <span class="font-medium text-gray-700">${ticket.status}</span></p>
+                            <p class="text-sm text-gray-500">Criado por: <span class="font-mono text-xs text-gray-600">${ticket.userId}</span></p>
+                        </div>
+                        <div class="flex space-x-2">
+                            ${isOwner ? `
+                                <button data-id="${ticket.id}" class="edit-btn p-2 rounded-full text-blue-600 hover:bg-blue-100 transition duration-150 ease-in-out">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z" />
+                                        <path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                                <button data-id="${ticket.id}" class="delete-btn p-2 rounded-full text-red-600 hover:bg-red-100 transition duration-150 ease-in-out">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                    </svg>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <p class="text-gray-700">${ticket.description}</p>
+                    <p class="text-xs text-gray-400 mt-2">Última atualização: ${formatDate(ticket.createdAt)}</p>
+                `;
+                ticketsList.appendChild(ticketCard);
+            });
+            // Adiciona event listeners para os botões de edição e exclusão
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.currentTarget.dataset.id;
+                    const ticketDoc = doc(db, `artifacts/${appId}/public/data/tickets`, id);
+                    const docSnap = await getDoc(ticketDoc);
+                    if (docSnap.exists() && docSnap.data().userId === userId) {
+                        showEditModal({ id, ...docSnap.data() });
+                    } else {
+                        console.error("Documento não encontrado ou usuário não é o proprietário.");
+                    }
+                });
+            });
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    editTicketId = e.currentTarget.dataset.id;
+                    showDeleteModal();
+                });
+            });
+        }
+        loadingEl.classList.add('hidden');
+    }
+
+    function updateDashboard(tickets) {
+        const counts = {
+            'Aberto': 0,
+            'Em Andamento': 0,
+            'Resolvido': 0,
+            'Fechado': 0
+        };
+
+        tickets.forEach(ticket => {
+            if (counts.hasOwnProperty(ticket.status)) {
+                counts[ticket.status]++;
+            }
+        });
+
+        const totalTickets = tickets.length;
+        document.getElementById('total-tickets').textContent = totalTickets;
+        document.getElementById('open-tickets').textContent = counts['Aberto'];
+        document.getElementById('resolved-tickets').textContent = counts['Resolvido'];
+
+        renderChart(counts);
+    }
+
+    function renderChart(counts) {
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+
+        const ctx = document.getElementById('ticket-chart').getContext('2d');
+        chartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Aberto', 'Em Andamento', 'Resolvido', 'Fechado'],
+                datasets: [{
+                    data: [counts['Aberto'], counts['Em Andamento'], counts['Resolvido'], counts['Fechado']],
+                    backgroundColor: ['#3B82F6', '#F59E0B', '#10B981', '#6B7280'],
+                    hoverBackgroundColor: ['#2563EB', '#D97706', '#059669', '#4B5563'],
+                    borderWidth: 1,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: true,
+                        text: 'Distribuição de Chamados por Status',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async function createTicket(title, description) {
+        try {
+            await addDoc(ticketsRef, {
+                title,
+                description,
+                status: 'Aberto',
+                userId: userId,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
+            console.log("Chamado criado com sucesso!");
+        } catch (e) {
+            console.error("Erro ao adicionar documento: ", e);
+        }
+    }
+
+    async function updateTicket(id, data) {
+        try {
+            const ticketRef = doc(db, `artifacts/${appId}/public/data/tickets`, id);
+            await updateDoc(ticketRef, {
+                ...data,
+                updatedAt: new Date()
+            });
+            hideEditModal();
+        } catch (e) {
+            console.error("Erro ao atualizar documento: ", e);
+        }
+    }
+
+    async function deleteTicket(id) {
+        try {
+            await deleteDoc(doc(db, `artifacts/${appId}/public/data/tickets`, id));
+            hideDeleteModal();
+            console.log("Chamado deletado com sucesso!");
+        } catch (e) {
+            console.error("Erro ao deletar documento: ", e);
+        }
+    }
+
+    // Inicialização do Firebase
+    function initFirebase() {
+        if (!firebaseConfig || Object.keys(firebaseConfig).length === 0) {
+            console.error("Configuração do Firebase não encontrada. O aplicativo não funcionará corretamente.");
+            return;
+        }
+
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            ticketsRef = collection(db, `artifacts/${appId}/public/data/tickets`);
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                    userInfoEl.textContent = `Seu ID de usuário: ${userId}`;
+                    startListeningForTickets();
+                } else {
+                    // Tenta fazer login anônimo se não houver token
+                    try {
+                        await signInAnonymously(auth);
+                    } catch (error) {
+                        console.error("Falha ao fazer login anônimo", error);
+                    }
+                }
+            });
+
+            if (initialAuthToken) {
+                signInWithCustomToken(auth, initialAuthToken).catch((error) => {
+                    console.error("Falha ao fazer login com token personalizado:", error);
+                    signInAnonymously(auth);
+                });
+            } else {
+                signInAnonymously(auth);
+            }
+
+            ticketForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const title = document.getElementById('title').value;
+                const description = document.getElementById('description').value;
+                createTicket(title, description);
+                ticketForm.reset();
+            });
+
+            editForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const title = document.getElementById('edit-title').value;
+                const description = document.getElementById('edit-description').value;
+                const status = document.getElementById('edit-status').value;
+                if (editTicketId) {
+                    updateTicket(editTicketId, { title, description, status });
+                }
+            });
+            
+            closeBtn.addEventListener('click', hideEditModal);
+            deleteConfirmNoBtn.addEventListener('click', hideDeleteModal);
+            deleteConfirmYesBtn.addEventListener('click', () => {
+                if (editTicketId) {
+                    deleteTicket(editTicketId);
+                    editTicketId = null;
+                }
+            });
+        } catch (error) {
+            console.error("Erro na inicialização do Firebase:", error);
+        }
+    }
+
+    function startListeningForTickets() {
+        loadingEl.classList.remove('hidden');
+        const q = query(ticketsRef, orderBy("createdAt", "desc"));
+        onSnapshot(q, (querySnapshot) => {
+            const tickets = [];
+            querySnapshot.forEach((doc) => {
+                tickets.push({ id: doc.id, ...doc.data() });
+            });
+            renderTickets(tickets);
+            updateDashboard(tickets);
+        });
+    }
+
+    initFirebase();
+</script>
+</body>
+</html>
